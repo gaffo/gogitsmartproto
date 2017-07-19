@@ -9,7 +9,7 @@ import (
 
 func failIfError(t* testing.T, err error) {
 	if err != nil {
-		t.Fatal("Unable to open refs file")
+		t.Fatal("Unable to open file", err)
 	}
 }
 
@@ -37,5 +37,11 @@ func assertLength(t *testing.T, expected int, col interface{}) {
 func assertEquals(t *testing.T, expected, actual string) {
 	if expected != actual {
 		t.Fatalf("Expected [%s] to be equal to [%s]", expected, actual)
+	}
+}
+
+func assertIEquals(t *testing.T, expected, actual int) {
+	if expected != actual {
+		t.Fatalf("Expected [%d] to be equal to [%d]", expected, actual)
 	}
 }
