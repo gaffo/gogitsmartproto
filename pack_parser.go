@@ -7,8 +7,28 @@ import (
 	"encoding/binary"
 	"compress/zlib"
 	"bytes"
-	"bufio"
 )
+
+type byteReader struct {
+	r io.ReadSeeker
+}
+
+func (this *byteReader) Read(p []byte) (n int, err error) {
+	return this.r.Read(p)
+}
+
+func (this *byteReader) ReadByte() (byte, error) {
+	buf := make([]byte, 1)
+	_, err := this.r.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	return buf[0], nil
+}
+
+func (this *byteReader) Seek(offset int64, whence int) (int64, error) {
+	return this.r.Seek(offset, whence)
+}
 
 type Pack struct {
 	CItems  int
@@ -47,7 +67,8 @@ func (this packObjectType) String() string {
 	}
 }
 
-func ParsePack(rdr io.ReadSeeker) (pack Pack, err error) {
+func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
+	rdr := &byteReader{r: r}
 	err = nil
 	four := make([]byte, 4, 4)
 	rdr.Read(four)
@@ -94,7 +115,14 @@ func ParsePack(rdr io.ReadSeeker) (pack Pack, err error) {
 
 		fmt.Println(objectTypeBits, objectSize, objectType)
 
-		zr, err2 := zlib.NewReader(bufio.NewReader(rdr))
+		switch objectType {
+		case OBJ_REF_DELTA:
+			baseObjName := make([]byte, 20)
+			rdr.Read(baseObjName)
+			fmt.Println("baseObjName", string(baseObjName))
+		}
+
+		zr, err2 := zlib.NewReader(rdr)
 		if err2 != nil {
 			err = err2
 			return
@@ -109,7 +137,6 @@ func ParsePack(rdr io.ReadSeeker) (pack Pack, err error) {
 		after, err2 := rdr.Seek(0, io.SeekCurrent)
 
 		fmt.Println(bytesRead, objectSize, before, after)
-
 
 		fmt.Println("======================")
 		fmt.Println(buf.String())
