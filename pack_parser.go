@@ -8,10 +8,11 @@ import (
 	"compress/zlib"
 	"bytes"
 	"encoding/hex"
+	"crypto/sha1"
 )
 
 type byteReader struct {
-	r io.ReadSeeker
+	r io.Reader
 }
 
 func (this *byteReader) Read(p []byte) (n int, err error) {
@@ -25,10 +26,6 @@ func (this *byteReader) ReadByte() (byte, error) {
 		return 0, err
 	}
 	return buf[0], nil
-}
-
-func (this *byteReader) Seek(offset int64, whence int) (int64, error) {
-	return this.r.Seek(offset, whence)
 }
 
 type Pack struct {
@@ -52,13 +49,13 @@ const (
 func (this packObjectType) String() string {
 	switch this {
 	case OBJ_COMMIT:
-		return "COMMIT"
+		return "commit"
 	case OBJ_TREE:
-		return "TREE"
+		return "tree"
 	case OBJ_BLOB:
-		return "BLOB"
+		return "blob"
 	case OBJ_TAG:
-		return "TAG"
+		return "tag"
 	case OBJ_OFS_DELTA:
 		return "OFS_DELTA"
 	case OBJ_REF_DELTA:
@@ -68,7 +65,7 @@ func (this packObjectType) String() string {
 	}
 }
 
-func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
+func ParsePack(r io.Reader) (pack Pack, err error) {
 	rdr := &byteReader{r: r}
 	err = nil
 	four := make([]byte, 4, 4)
@@ -137,12 +134,23 @@ func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
 			return
 		}
 
+		b := buf.Bytes()
+
+		h := sha1.New()
+		h.Write([]byte(fmt.Sprintf("%s %d", objectType.String(), len(b))))
+		h.Write([]byte{0})
+		h.Write(b)
+		hashBytes := h.Sum(nil)
+
+		sha := hex.EncodeToString(hashBytes)
+
+		fmt.Println("//////////////////////")
+		fmt.Println(sha)
 		fmt.Println("======================")
 		switch objectType {
 		case OBJ_BLOB:
-			//fmt.Println(buf.String())
+			fmt.Println(buf.String())
 		case OBJ_TREE:
-			b := buf.Bytes()
 			start := 0
 			for i := 0; i < len(b); i++ {
 				v := b[i]
@@ -153,10 +161,11 @@ func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
 				pre := string(b[start:i])
 				start = i + 21
 				sha := hex.EncodeToString(b[i+1:start])
+				i = start
 				fmt.Println(pre, sha)
 			}
 		default:
-			//fmt.Println(buf.String())
+			fmt.Println(buf.String())
 		}
 
 		fmt.Println("---------------------")

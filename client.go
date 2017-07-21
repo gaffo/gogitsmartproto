@@ -6,8 +6,6 @@ import (
 	"strings"
 	"bytes"
 	"compress/gzip"
-	"os"
-	"io"
 )
 
 type Ref struct {
@@ -63,7 +61,7 @@ func (this *Client) Refs() (Refs, error) {
 }
 
 func (this *Client) Packs(want string) (string, error) {
-	req := "0032want 20a6d91a4ab05a95635fba68872ee5b38c68e16e\n00000009done\n"
+	req := fmt.Sprintf("0032want %s\n00000009done\n", want)
 	url := this.walkPackUrl()
 	hReq, err := http.NewRequest("POST", url, strings.NewReader(req))
 	if err != nil {
@@ -74,12 +72,11 @@ func (this *Client) Packs(want string) (string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(hReq)
 
-	f, err := os.Create("tmp.dat")
-	if err != nil {
-		return "", err
-	}
+	buf := make([]byte, 8)
+	resp.Body.Read(buf)
 
-	io.Copy(f, resp.Body)
+	pack, err := ParsePack(resp.Body)
+	fmt.Println(pack, err)
 
 	return "", nil
 

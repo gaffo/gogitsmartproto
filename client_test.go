@@ -23,7 +23,7 @@ func Test_Scan(t *testing.T) {
 	//resp, err := client.Refs()
 	//failIfError(t, err)
 	//ref := resp.Refs[0]
-	res, err := client.Packs("3802de4a769092a4b6477e9b5ec0636938c5a957")
+	res, err := client.Packs("20a6d91a4ab05a95635fba68872ee5b38c68e16e")
 	failIfError(t, err)
 	t.Fatal(res)
 }
