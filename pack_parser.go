@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"compress/zlib"
 	"bytes"
+	"encoding/hex"
 )
 
 type byteReader struct {
@@ -94,9 +95,7 @@ func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
 		chunk := uint(_byte) & 15
 		objectSize := int(chunk)
 		var shift uint = 4
-		fmt.Println("i", chunk, shift, objectSize)
 		for MSB > 0 {
-			fmt.Println(MSB, ".")
 			_bytes := make([]byte, 1)
 			rdr.Read(_bytes)
 			_byte := _bytes[0]
@@ -107,13 +106,11 @@ func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
 			newIncr := int(chunk << shift)
 			objectSize += newIncr
 			shift += 7
-			fmt.Println("r", _bytes, chunk, newIncr, shift, objectSize)
 		}
 
-		before, err2 := rdr.Seek(0, io.SeekCurrent)
 		objectType := packObjectType(objectTypeBits)
 
-		fmt.Println(objectTypeBits, objectSize, objectType)
+		fmt.Println(objectType)
 
 		switch objectType {
 		case OBJ_REF_DELTA:
@@ -134,14 +131,58 @@ func ParsePack(r io.ReadSeeker) (pack Pack, err error) {
 			err = err2
 			return
 		}
-		after, err2 := rdr.Seek(0, io.SeekCurrent)
 
-		fmt.Println(bytesRead, objectSize, before, after)
+		if bytesRead != int64(objectSize) {
+			err = errors.New("Object size doesn't match decompressed size")
+			return
+		}
 
 		fmt.Println("======================")
-		fmt.Println(buf.String())
+		switch objectType {
+		case OBJ_BLOB:
+			//fmt.Println(buf.String())
+		case OBJ_TREE:
+			b := buf.Bytes()
+			start := 0
+			for i := 0; i < len(b); i++ {
+				v := b[i]
+				if v != 0 {
+					continue
+				}
+
+				pre := string(b[start:i])
+				start = i + 21
+				sha := hex.EncodeToString(b[i+1:start])
+				fmt.Println(pre, sha)
+			}
+		default:
+			//fmt.Println(buf.String())
+		}
+
 		fmt.Println("---------------------")
 	}
 
 	return
+}
+
+func nulary(buf []byte) []string {
+	ret := make([]string, 0, 1024)
+	start := 0
+	for i, v := range buf {
+		if v == 0 {
+			str := string(buf[start:i])
+			ret = append(ret, str)
+			start = i + 1
+		}
+	}
+	return ret
+}
+
+func nulidx(ary []byte) int {
+	for i, v := range ary {
+		if v == 0 {
+			return i
+		}
+	}
+	return -1
 }
